@@ -162,11 +162,11 @@ func AssumeIamRole(iamRoleArn string, terragruntOptions *options.TerragruntOptio
 			terragruntOptions.Logger.Debugf("Hittner: %v got credentials\n", transationID)
 			break
 		} else {
-			terragruntOptions.Logger.Debugf("Hittner: %v Credentials.Get() failed with %+v\n", transationID, err)
+			terragruntOptions.Logger.Debugf("Hittner: %v Credentials.Get() failed with %+v\n", transationID, err2)
 		}
 
 		if retry > 3 {
-			msg := fmt.Sprintf("HITTER1: %v retry %v Error finding AWS credentials (did you set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables?)\n", retry, transationID)
+			msg := fmt.Sprintf("HITTER1: %v retry %v Error finding AWS credentials (did you set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables?) error: %+v\n",transationID, retry, err2)
 			return nil, errors.WithStackTraceAndPrefix(err2, msg)
 		} else {
 			terragruntOptions.Logger.Debugf("Hittner: %v sleeping 30 secs on Credentials.Get()\n", transationID)
