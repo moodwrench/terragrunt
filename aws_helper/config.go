@@ -2,6 +2,7 @@ package aws_helper
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,6 +13,8 @@ import (
 	"github.com/gruntwork-io/terragrunt/errors"
 	"github.com/gruntwork-io/terragrunt/options"
 )
+
+var transationID int64 = 9999999999 - rand.Int63n(9000000000)
 
 // A representation of the configuration options for an AWS Session
 type AwsSessionConfig struct {
@@ -124,15 +127,51 @@ func CreateAwsSession(config *AwsSessionConfig, terragruntOptions *options.Terra
 }
 
 // Make API calls to AWS to assume the IAM role specified and return the temporary AWS credentials to use that role
-func AssumeIamRole(iamRoleArn string) (*sts.Credentials, error) {
-	sess, err := session.NewSession()
-	if err != nil {
-		return nil, errors.WithStackTrace(err)
+func AssumeIamRole(iamRoleArn string, terragruntOptions *options.TerragruntOptions) (*sts.Credentials, error) {
+	terragruntOptions.Logger.Debugf("Hittner: entered AssumeIamRole()\n")
+	var err error
+	var err2 error
+	var sess *session.Session
+
+	terragruntOptions.Logger.Debugf("Hittner: session is %+v\n", sess)
+	for sess == nil {
+		for retry := 1; err == nil; retry++ {
+			sess, err = session.NewSession()
+			terragruntOptions.Logger.Debugf("Hittner: %v retry number %v Unable to get a session %+v\n", transationID, retry, err)
+			if err == nil {
+				terragruntOptions.Logger.Debugf("Hittner: %v got a session\n", transationID)
+				break
+			}
+
+			terragruntOptions.Logger.Debugf("Hittner: %v session is %+v\n", sess, transationID)
+
+			if retry > 3 {
+				return nil, errors.WithStackTrace(err)
+			} else {
+				terragruntOptions.Logger.Debugf("Hittner: %v sleeping 30 secs on NewSession()\n", transationID)
+				time.Sleep(30 * time.Second)
+			}
+		}
 	}
 
-	_, err = sess.Config.Credentials.Get()
-	if err != nil {
-		return nil, errors.WithStackTraceAndPrefix(err, "Error finding AWS credentials (did you set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables?)")
+	terragruntOptions.Logger.Debugf("Hittner: %v got a new aws session: %+v\n", transationID, sess)
+
+	for retry := 1; err2 == nil; retry++ {
+		_, err2 = sess.Config.Credentials.Get()
+		if err2 == nil {
+			terragruntOptions.Logger.Debugf("Hittner: %v got credentials\n", transationID)
+			break
+		} else {
+			terragruntOptions.Logger.Debugf("Hittner: %v Credentials.Get() failed with %+v\n", transationID, err)
+		}
+
+		if retry > 3 {
+			msg := fmt.Sprintf("HITTER1: %v retry %v Error finding AWS credentials (did you set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables?)\n", retry, transationID)
+			return nil, errors.WithStackTraceAndPrefix(err2, msg)
+		} else {
+			terragruntOptions.Logger.Debugf("Hittner: %v sleeping 30 secs on Credentials.Get()\n", transationID)
+			time.Sleep(30 * time.Second)
+		}
 	}
 
 	stsClient := sts.New(sess)
@@ -198,12 +237,13 @@ func GetAWSUserID(config *AwsSessionConfig, terragruntOptions *options.Terragrun
 // Assume an IAM role, if one is specified, by making API calls to Amazon STS and setting the environment variables
 // we get back inside of terragruntOptions.Env
 func AssumeRoleAndUpdateEnvIfNecessary(terragruntOptions *options.TerragruntOptions) error {
+	terragruntOptions.Logger.Debugf("Hittner: in AssumeRoleAndUpdateEnvIfNecessary()\n")
 	if terragruntOptions.IamRole == "" {
 		return nil
 	}
 
 	terragruntOptions.Logger.Debugf("Assuming IAM role %s", terragruntOptions.IamRole)
-	creds, err := AssumeIamRole(terragruntOptions.IamRole)
+	creds, err := AssumeIamRole(terragruntOptions.IamRole, terragruntOptions)
 	if err != nil {
 		return err
 	}
