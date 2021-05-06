@@ -33,7 +33,7 @@ terragrunt: $(shell find . \( -type d -name 'vendor' -prune \) \
                         -o \( -type f -name '*.go'   -print \) )
 	set -xe ;\
 	vtag_maybe_extra=$$(git describe --tags --abbrev=12 --dirty --broken) ;\
-	go build -o $@ -ldflags "-X main.VERSION=$${vtag_maybe_extra}" .
+	env GOOS=linux GOARCH=amd64 go build -o $@ -ldflags "-X main.VERSION=$${vtag_maybe_extra}" .
 
 clean:
 	rm -f terragrunt
